@@ -81,7 +81,7 @@ def parse_data(tcp_socket):
         
         return parsed_data
     except Exception as e:
-        logging.error(f"Error processing SmartFlux data: {e}")
+        logging.error(f"Error processing data: {e}")
         raise
 
 def publish_data(plugin, data, data_names, meta):
@@ -94,7 +94,7 @@ def publish_data(plugin, data, data_names, meta):
     :param meta: Metadata for the data.
     """
 
-    timestamp_nanoseconds = data.get('Seconds', 0) * 1e9 # 0 if not found
+    timestamp_nanoseconds = int(data.get('Seconds', 0) * 1e9) # 0 if not found
 
     for key, value in data.items():
         if key in data_names:
@@ -129,11 +129,11 @@ def run(ip_address, port, data_names, meta):
                 logging.info(f"Data: {data}")
                 publish_data(plugin, data, data_names, meta)
     except Exception as e:
-        logging.error(f"SmartFlux reader error: {e}")
+        logging.error(f"{e}")
     finally:
         if tcp_socket:
             tcp_socket.close()
-        logging.info("SmartFlux connection closed. Exiting gracefully.")
+        logging.info("Connection closed.")
 
 if __name__ == "__main__":
     try:

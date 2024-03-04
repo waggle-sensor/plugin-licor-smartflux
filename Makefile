@@ -1,5 +1,5 @@
 WORKDIR=$(shell pwd)
-IMAGE?=plugin-usb
+IMAGE?=licor
 
 default:
 	@echo ${WORKDIR}
@@ -15,10 +15,9 @@ rm:
 
 deploy:
 	docker run -d --rm --name ${IMAGE} \
-	       --device=/dev/ttyUSB0 \
 	       --entrypoint '/bin/sh' ${IMAGE} -c 'while true; do date; sleep 10; done'
 run:
-	docker run --device=/dev/ttyUSB0 ${IMAGE}
+	docker run ${IMAGE}
 
 interactive:
 	docker exec -it ${IMAGE} bash

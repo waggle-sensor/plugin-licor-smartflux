@@ -1,0 +1,15 @@
+name: "licor-smartflux"
+description: "Captures & uploads data from a Licor SmartFlux data stream."
+version: "0.24.3.04"
+authors: "Bhupendra Raut <braut@anl.gov> and Sujan Pal <spal@anl.gov>"
+collaborators: "Matt Tuftedal, Joe O'Brien, Yongho Kim and Raj Sankaran"
+funding: "Community Research on Climate and Urban Science (CROCUS)"
+license: ""
+keywords: "Eddy covariance, Flux Measurement "
+homepage: "https://github.com/waggle-sensor/plugin-licor-smartflux"
+source:
+  architectures:
+    - "linux/amd64"
+    - "linux/arm64"
+  url: ""
+  branch: "main"

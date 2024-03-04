@@ -1,6 +1,10 @@
 """
 The waggle plugin designed to interface with Licor SmartFlux over TCP/IP connections. 
 It reads, parses, and publishes data from SmartFlux to the beehive.
+
+@ToDo
+1. It should change sonic wind data sensor name.
+2. Time need to be tested for accuracy.
 """
 
 import socket

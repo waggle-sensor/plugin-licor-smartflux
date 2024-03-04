@@ -1,4 +1,4 @@
-# Waggle Plugin for LI-COR smartFlux system
+# Plugin for LI-COR smartFlux system
 
 # Li7500DS
 The Li7500DS is a state-of-the-art open path gas analyzer designed by LI-COR Biosciences, specifically engineered for high precision measurements of carbon dioxide (CO2) and water vapor (H2O) concentrations in the atmosphere.
@@ -9,7 +9,6 @@ The Li7500DS and sonic anemometer are used for eddy covariance system to measure
 ## Waggle Plugin for Li7500DS via SmartFlux
 The plugin collects data from the LiCOR SmartFlux system over TCP/IP networks. It enables the reading, parsing, and publishing of the data to the Waggle beehive for further analysis and storage. The plugin connects to the SmartFlux device using its IP address and port number. It then listens for data transmitted over the network. Incoming data from SmartFlux is parsed using regular expressions extracting CO2 and H2O conc., temperature, pressure. Parsed data is published with appropriate metadata
 
-### Usage
 ### Example Command
 
 ```bash

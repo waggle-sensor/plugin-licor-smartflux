@@ -73,6 +73,13 @@ def parse_data(tcp_socket):
             'CO2AW': r'\(CO2AW ([\d.]+)\)',
             'CO2AWO': r'\(CO2AWO ([\d.]+)\)',
             'DSIVin': r'\(DSIVin ([\d.]+)\)',
+            # Sonic variables
+            'U': r'\(U ([-\d.]+)\)',
+            'V': r'\(V ([-\d.]+)\)',
+            'W': r'\(W ([-\d.]+)\)',
+            'TS': r'\(TS ([-\d.]+)\)',
+            'SOS': r'\(SOS ([-\d.]+)\)',
+            'AnemDiag': r'\(AnemDiag ([-\d]+)\)',
         }
         
         for key, pattern in patterns.items():
@@ -144,7 +151,8 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser(description="TCP Device Interface for SmartFlux")
         parser.add_argument('--ip', type=str, required=True, help='SmartFlux IP address')
         parser.add_argument('--port', type=int, default=7200, help='TCP connection port (default: 7200)')
-        parser.add_argument('--sensor', type=str, default="LI7500DS", help='Sensor type (default: LI7500DS)')
+        parser.add_argument('--sensors', type=str, default="LI7500DS + Gill", help='Gas Analyzer and Sonic Sensor names (default: LI7500DS + Gill)')
+        parser.add_argument('')
 
         args = parser.parse_args()
 
@@ -162,6 +170,13 @@ if __name__ == "__main__":
             ("H2OAWO", "h2o.absolute_water_offset"),
             ("CO2AW", "co2.absolute_water"),
             ("CO2AWO", "co2.absolute_water_offset"),
+            # Sonic
+            ("U", "sonic.u"),
+            ("V", "sonic.v"),
+            ("W", "sonic.w"),
+            ("TS", "sonic.ts"),
+            ("SOS", "sonic.sos"),
+            ("AnemDiag", "sonic.diag"),
         ])
         meta = {
             "sensor": args.sensor, 
@@ -179,6 +194,14 @@ if __name__ == "__main__":
                 "h2o.absolute_water_offset": "unit",
                 "co2.absolute_water": "unit",
                 "co2.absolute_water_offset": "unit",
+                # Sonic
+                "sonic.u": "m/s",
+                "sonic.v": "m/s",
+                "sonic.w": "m/s",
+                "sonic.ts": "°C",
+                "sonic.sos": "m/s",
+                "sonic.diag": "unit",
+
             },
             "description": {
                 "co2.raw": "Raw CO2 measurement",
@@ -194,6 +217,13 @@ if __name__ == "__main__":
                 "h2o.absolute_water_offset": "Absolute water content offset",
                 "co2.absolute_water": "CO2 absolute water content",
                 "co2.absolute_water_offset": "CO2 absolute water content offset",
+                # Sonic
+                "sonic.u": "Sonic U-component of wind speed",
+                "sonic.v": "Sonic V-component of wind speed",
+                "sonic.w": "Sonic vertical wind speed",
+                "sonic.ts": "Sonic temperature",
+                "sonic.sos": "Speed of sound",
+                "sonic.diag": "Sonic diagnostic",
             },
         }
 

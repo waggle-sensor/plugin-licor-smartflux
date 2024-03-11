@@ -48,9 +48,6 @@ def parse_data(tcp_socket):
             'Seconds': r'\(Seconds (\d+)\)',
             'Nanoseconds': r'\(Nanoseconds (\d+)\)',
             'Ndx': r'\(Ndx (\d+)\)',
-            'DiagVal': r'\(DiagVal (\d+)\)',
-            'DiagVal2': r'\(DiagVal2 (\d+)\)',
-            'DiagBits': r'\(DiagBits (\d+)\)',
             'Date': r'\(Date ([\d-]+)\)',
             'Time': r'\(Time ([\d:]+)\)',
             'CO2Raw': r'\(CO2Raw ([\d.]+)\)',
@@ -62,8 +59,6 @@ def parse_data(tcp_socket):
             'Temp': r'\(Temp ([\d.]+)\)',
             'Pres': r'\(Pres ([\d.]+)\)',
             'Cooler': r'\(Cooler ([\d.]+)\)',
-            'ChopperCooler': r'\(ChopperCooler ([\d.]+)\)',
-            'SFVin': r'\(SFVin ([\d.]+)\)',
             'CO2MF': r'\(CO2MF ([\d.]+)\)',
             'H2OMF': r'\(H2OMF ([\d.]+)\)',
             'DewPt': r'\(DewPt ([\d.-]+)\)',
@@ -72,14 +67,12 @@ def parse_data(tcp_socket):
             'H2OAWO': r'\(H2OAWO ([\d.]+)\)',
             'CO2AW': r'\(CO2AW ([\d.]+)\)',
             'CO2AWO': r'\(CO2AWO ([\d.]+)\)',
-            'DSIVin': r'\(DSIVin ([\d.]+)\)',
             # Sonic variables
             'U': r'\(U ([-\d.]+)\)',
             'V': r'\(V ([-\d.]+)\)',
             'W': r'\(W ([-\d.]+)\)',
             'TS': r'\(TS ([-\d.]+)\)',
             'SOS': r'\(SOS ([-\d.]+)\)',
-            'AnemDiag': r'\(AnemDiag ([-\d]+)\)',
         }
         
         for key, pattern in patterns.items():
@@ -147,86 +140,110 @@ def run(ip_address, port, data_names, meta):
         logging.info("Connection closed.")
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="TCP Device Interface for SmartFlux")
+    parser.add_argument('--ip', type=str, required=True, help='SmartFlux IP address')
+    parser.add_argument('--port', type=int, default=7200, help='TCP connection port (default: 7200)')
+    parser.add_argument('--sensors', type=str, default="LI7500DS + Gill", help='Gas Analyzer and Sonic Sensor names (default: LI7500DS + Gill)')
+    parser.add_argument('--interval', type=int, default=1, help='Data publishing interval in seconds (default: 1)')
+
+    args = parser.parse_args()
+
+    data_names = OrderedDict([
+    ("Seconds", "time.seconds"),
+    ("Nanoseconds", "time.nanoseconds"),
+    ("Ndx", "index"),
+    ("Date", "date"),
+    ("Time", "time"),
+    ("CO2Raw", "co2.raw"),
+    ("H2ORaw", "h2o.raw"),
+    ("CO2D", "co2.density"),
+    ("CO2MG", "co2.mg_per_m3"),
+    ("H2OD", "h2o.density"),
+    ("H2OG", "h2o.g_per_m3"),
+    ("Temp", "temperature"),
+    ("Pres", "pressure"),
+    ("Cooler", "cooler"),
+    ("CO2MF", "co2.mole_fraction"),
+    ("H2OMF", "h2o.mole_fraction"),
+    ("DewPt", "dew_point"),
+    ("CO2SS", "co2.signal_strength"),
+    ("H2OAW", "h2o.absolute_water"),
+    ("H2OAWO", "h2o.absolute_water_offset"),
+    ("CO2AW", "co2.absolute_water"),
+    ("CO2AWO", "co2.absolute_water_offset"),
+    # Sonic variables
+    ("U", "sonic.u"),
+    ("V", "sonic.v"),
+    ("W", "sonic.w"),
+    ("TS", "sonic.temperature"),
+    ("SOS", "sonic.speed_of_sound"),
+])
+
+    meta = {
+    "units": {
+        "time.seconds": "s",
+        "time.nanoseconds": "ns",
+        "index": "unit",
+        "date": "YYYY-MM-DD",
+        "time": "HH:MM:SS",
+        "co2.raw": "unit",
+        "h2o.raw": "unit",
+        "co2.density": "mg/m^3",
+        "co2.mg_per_m3": "mg/m^3",
+        "h2o.density": "g/m^3",
+        "h2o.g_per_m3": "g/m^3",
+        "temperature": "°C",
+        "pressure": "kPa",
+        "cooler": "unit",
+        "co2.mole_fraction": "ppm",
+        "h2o.mole_fraction": "ppm",
+        "dew_point": "°C",
+        "co2.signal_strength": "unit",
+        "h2o.absolute_water": "unit",
+        "h2o.absolute_water_offset": "unit",
+        "co2.absolute_water": "unit",
+        "co2.absolute_water_offset": "unit",
+        # Sonic
+        "sonic.u": "m/s",
+        "sonic.v": "m/s",
+        "sonic.w": "m/s",
+        "sonic.temperature": "°C",
+        "sonic.speed_of_sound": "m/s",
+    },
+    "description": {
+        "time.seconds": "Epoch time in seconds",
+        "time.nanoseconds": "Nanoseconds to complement epoch seconds",
+        "index": "Data index",
+        "date": "Date of data capture",
+        "time": "Time of data capture",
+        "co2.raw": "Raw CO2 measurement",
+        "h2o.raw": "Raw H2O measurement",
+        "co2.density": "CO2 density",
+        "co2.mg_per_m3": "CO2 in mg per cubic meter",
+        "h2o.density": "H2O density",
+        "h2o.g_per_m3": "H2O in grams per cubic meter",
+        "temperature": "Ambient temperature",
+        "pressure": "Atmospheric pressure",
+        "cooler": "Cooler status",
+        "co2.mole_fraction": "CO2 mole fraction",
+        "h2o.mole_fraction": "H2O mole fraction",
+        "dew_point": "Dew point temperature",
+        "co2.signal_strength": "CO2 signal strength",
+        "h2o.absolute_water": "Absolute water content",
+        "h2o.absolute_water_offset": "Absolute water content offset",
+        "co2.absolute_water": "CO2 absolute water content",
+        "co2.absolute_water_offset": "CO2 absolute water content offset",
+        # Sonic
+        "sonic.u": "Sonic U-component of wind speed",
+        "sonic.v": "Sonic V-component of wind speed",
+        "sonic.w": "Sonic vertical wind speed",
+        "sonic.temperature": "Sonic temperature",
+        "sonic.speed_of_sound": "Speed of sound",
+    },
+    }
+
     try:
-        parser = argparse.ArgumentParser(description="TCP Device Interface for SmartFlux")
-        parser.add_argument('--ip', type=str, required=True, help='SmartFlux IP address')
-        parser.add_argument('--port', type=int, default=7200, help='TCP connection port (default: 7200)')
-        parser.add_argument('--sensors', type=str, default="LI7500DS + Gill", help='Gas Analyzer and Sonic Sensor names (default: LI7500DS + Gill)')
-        parser.add_argument('')
-
-        args = parser.parse_args()
-
-        data_names = OrderedDict([
-            ("CO2Raw", "co2.raw"),
-            ("H2ORaw", "h2o.raw"),
-            ("CO2D", "co2.density"),
-            ("CO2MG", "co2.mg_per_m3"),
-            ("H2OD", "h2o.density"),
-            ("H2OG", "h2o.g_per_m3"),
-            ("CO2MF", "co2.mole_fraction"),
-            ("H2OMF", "h2o.mole_fraction"),
-            ("CO2SS", "co2.signal_strength"),
-            ("H2OAW", "h2o.absolute_water"),
-            ("H2OAWO", "h2o.absolute_water_offset"),
-            ("CO2AW", "co2.absolute_water"),
-            ("CO2AWO", "co2.absolute_water_offset"),
-            # Sonic
-            ("U", "sonic.u"),
-            ("V", "sonic.v"),
-            ("W", "sonic.w"),
-            ("TS", "sonic.ts"),
-            ("SOS", "sonic.sos"),
-            ("AnemDiag", "sonic.diag"),
-        ])
-        meta = {
-            "sensor": args.sensor, 
-            "units": {
-                "co2.raw": "unit",
-                "h2o.raw": "unit",
-                "co2.density": "mg/m^3",
-                "co2.mg_per_m3": "mg/m^3",
-                "h2o.density": "g/m^3",
-                "h2o.g_per_m3": "g/m^3",
-                "co2.mole_fraction": "ppm",
-                "h2o.mole_fraction": "ppm",
-                "co2.signal_strength": "unit",
-                "h2o.absolute_water": "unit",
-                "h2o.absolute_water_offset": "unit",
-                "co2.absolute_water": "unit",
-                "co2.absolute_water_offset": "unit",
-                # Sonic
-                "sonic.u": "m/s",
-                "sonic.v": "m/s",
-                "sonic.w": "m/s",
-                "sonic.ts": "°C",
-                "sonic.sos": "m/s",
-                "sonic.diag": "unit",
-
-            },
-            "description": {
-                "co2.raw": "Raw CO2 measurement",
-                "h2o.raw": "Raw H2O measurement",
-                "co2.density": "CO2 density",
-                "co2.mg_per_m3": "CO2 in mg per cubic meter",
-                "h2o.density": "H2O density",
-                "h2o.g_per_m3": "H2O in grams per cubic meter",
-                "co2.mole_fraction": "CO2 mole fraction",
-                "h2o.mole_fraction": "H2O mole fraction",
-                "co2.signal_strength": "CO2 signal strength",
-                "h2o.absolute_water": "Absolute water content",
-                "h2o.absolute_water_offset": "Absolute water content offset",
-                "co2.absolute_water": "CO2 absolute water content",
-                "co2.absolute_water_offset": "CO2 absolute water content offset",
-                # Sonic
-                "sonic.u": "Sonic U-component of wind speed",
-                "sonic.v": "Sonic V-component of wind speed",
-                "sonic.w": "Sonic vertical wind speed",
-                "sonic.ts": "Sonic temperature",
-                "sonic.sos": "Speed of sound",
-                "sonic.diag": "Sonic diagnostic",
-            },
-        }
-
         run(args.ip, args.port, data_names, meta)
     except KeyboardInterrupt:
         logging.info("Interrupted by user, shutting down.")

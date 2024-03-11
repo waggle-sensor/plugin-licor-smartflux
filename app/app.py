@@ -181,6 +181,7 @@ if __name__ == "__main__":
 ])
 
     meta = {
+    "sensor": args.sensor,
     "units": {
         "time.seconds": "s",
         "time.nanoseconds": "ns",

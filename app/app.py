@@ -13,6 +13,9 @@ from waggle.plugin import Plugin
 from collections import OrderedDict
 import re
 import argparse
+import timeout_decorator
+import sys
+TIMEOUT_SECONDS = 30
 
 # for file transfer
 import threading
@@ -34,19 +37,23 @@ def run(args, data_names, meta):
     :param meta: Metadata for the data.
     """
     tcp_socket = None
-    try:
-        with Plugin() as plugin:
+    with Plugin() as plugin:
+        try:
             tcp_socket = connect(args)
             while True:
                 data = parse_data(args, plugin, tcp_socket)
                 logging.info(f"Data: {data}")
                 publish_data(plugin, data, data_names, meta)
-    except Exception as e:
-        logging.error(f"{e}")
-    finally:
-        if tcp_socket:
-            tcp_socket.close()
-        logging.info("Connection closed.")
+        except timeout_decorator.TimeoutError:
+            logging.error(f"Unknown_Timeout")
+            plugin.publish('exit.status', 'Unknown_Timeout')
+            sys.exit("Timeout error while waiting for data.")
+        except Exception as e:
+            logging.error(f"{e}")
+        finally:
+            if tcp_socket:
+                tcp_socket.close()
+            logging.info("Connection closed.")
 
 
 
@@ -66,7 +73,7 @@ def connect(args):
         raise
     return tcp_socket
 
-
+@timeout_decorator.timeout(TIMEOUT_SECONDS, use_signals=True)
 def parse_data(args, plugin,  tcp_socket):
     """
     Receives and decodes data from a SmartFlux device.
@@ -78,7 +85,7 @@ def parse_data(args, plugin,  tcp_socket):
         data = tcp_socket.recv(4096).decode("utf-8")
     except Exception as e:
         logging.error(f"Error getting data: {e}")
-    raise
+        raise
 
     if not "RunStatus done" in data:
        return(extract_data(data))

@@ -14,10 +14,16 @@ from collections import OrderedDict
 import re
 import argparse
 
+# for file transfer
+import threading
+import subprocess
+import os
+from pathlib import Path
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def connect(ip_address, port):
+def connect(args):
     """
     Establishes a connection to a Licor SmartFlux device.
 
@@ -27,7 +33,7 @@ def connect(ip_address, port):
     """
     try:
         tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tcp_socket.connect((ip_address, port))
+        tcp_socket.connect((args.ip, args.port))
     except Exception as e:
         logging.error(f"Connection failed: {e}. Check device, network, or Waggle node restrictions.")
         raise
@@ -42,51 +48,91 @@ def parse_data(tcp_socket):
     """
     try:
         data = tcp_socket.recv(4096).decode("utf-8")
-        parsed_data = {}
-        # RegEx for SmartFlux data extraction
-        patterns = {
-            'Seconds': r'\(Seconds (\d+)\)',
-            'Nanoseconds': r'\(Nanoseconds (\d+)\)',
-            'Ndx': r'\(Ndx (\d+)\)',
-            'Date': r'\(Date ([\d-]+)\)',
-            'Time': r'\(Time ([\d:]+)\)',
-            'CO2Raw': r'\(CO2Raw ([\d.]+)\)',
-            'H2ORaw': r'\(H2ORaw ([\d.]+)\)',
-            'CO2D': r'\(CO2D ([\d.]+)\)',
-            'CO2MG': r'\(CO2MG ([\d.]+)\)',
-            'H2OD': r'\(H2OD ([\d.]+)\)',
-            'H2OG': r'\(H2OG ([\d.]+)\)',
-            'Temp': r'\(Temp ([\d.]+)\)',
-            'Pres': r'\(Pres ([\d.]+)\)',
-            'Cooler': r'\(Cooler ([\d.]+)\)',
-            'CO2MF': r'\(CO2MF ([\d.]+)\)',
-            'H2OMF': r'\(H2OMF ([\d.]+)\)',
-            'DewPt': r'\(DewPt ([\d.-]+)\)',
-            'CO2SS': r'\(CO2SS ([\d.]+)\)',
-            'H2OAW': r'\(H2OAW ([\d.]+)\)',
-            'H2OAWO': r'\(H2OAWO ([\d.]+)\)',
-            'CO2AW': r'\(CO2AW ([\d.]+)\)',
-            'CO2AWO': r'\(CO2AWO ([\d.]+)\)',
-            # Sonic variables
-            'U': r'\(U ([-\d.]+)\)',
-            'V': r'\(V ([-\d.]+)\)',
-            'W': r'\(W ([-\d.]+)\)',
-            'TS': r'\(TS ([-\d.]+)\)',
-            'SOS': r'\(SOS ([-\d.]+)\)',
-        }
-        
-        for key, pattern in patterns.items():
-            match = re.search(pattern, data)
-            if match:
-                try:
-                    parsed_data[key] = float(match.group(1))
-                except ValueError:
-                    parsed_data[key] = match.group(1)
-        
-        return parsed_data
     except Exception as e:
-        logging.error(f"Error processing data: {e}")
-        raise
+        logging.error(f"Error getting data: {e}")
+    raise
+
+    if not "RunStatus done" in data:
+       return(extract_data(data))
+    else: # if run status done found
+        copy_flux_files(data)
+        return None
+                
+
+def extract_data(data):
+    parsed_data = {}
+    # RegEx for SmartFlux data extraction
+    patterns = {
+        'Seconds': r'\(Seconds (\d+)\)',
+        'Nanoseconds': r'\(Nanoseconds (\d+)\)',
+        'Ndx': r'\(Ndx (\d+)\)',
+        'Date': r'\(Date ([\d-]+)\)',
+        'Time': r'\(Time ([\d:]+)\)',
+        'CO2Raw': r'\(CO2Raw ([\d.]+)\)',
+        'H2ORaw': r'\(H2ORaw ([\d.]+)\)',
+        'CO2D': r'\(CO2D ([\d.]+)\)',
+        'CO2MG': r'\(CO2MG ([\d.]+)\)',
+        'H2OD': r'\(H2OD ([\d.]+)\)',
+        'H2OG': r'\(H2OG ([\d.]+)\)',
+        'Temp': r'\(Temp ([\d.]+)\)',
+        'Pres': r'\(Pres ([\d.]+)\)',
+        'Cooler': r'\(Cooler ([\d.]+)\)',
+        'CO2MF': r'\(CO2MF ([\d.]+)\)',
+        'H2OMF': r'\(H2OMF ([\d.]+)\)',
+        'DewPt': r'\(DewPt ([\d.-]+)\)',
+        'CO2SS': r'\(CO2SS ([\d.]+)\)',
+        'H2OAW': r'\(H2OAW ([\d.]+)\)',
+        'H2OAWO': r'\(H2OAWO ([\d.]+)\)',
+        'CO2AW': r'\(CO2AW ([\d.]+)\)',
+        'CO2AWO': r'\(CO2AWO ([\d.]+)\)',
+        # Sonic variables
+        'U': r'\(U ([-\d.]+)\)',
+        'V': r'\(V ([-\d.]+)\)',
+        'W': r'\(W ([-\d.]+)\)',
+        'TS': r'\(TS ([-\d.]+)\)',
+        'SOS': r'\(SOS ([-\d.]+)\)',
+    }
+
+    for key, pattern in patterns.items():
+        match = re.search(pattern, data)
+        if match:
+            try:
+                parsed_data[key] = float(match.group(1))
+            except ValueError:
+                parsed_data[key] = match.group(1)
+    
+    return parsed_data
+
+
+def copy_flux_files(data):
+    """
+    Handles the completion status by initiating file transfer.
+    """
+    last_file_match = re.search(r'\(LastFile ([^\)]+)\)', data)
+    if last_file_match:
+        last_file = last_file_match.group(1)
+        scp_thread = threading.Thread(target=scp_and_upload, args=(last_file, 'username', 'password', 'ip_address', '/local/dir'))
+        scp_thread.start()
+
+
+def scp_and_upload(last_file, username, password, ip_address, local_dir):
+    """
+    Copies the specified file and its associated files from the remote system
+    and uploads them to the Waggle platform.
+    """
+    remote_dir = os.path.dirname(last_file)
+    base_filename = os.path.basename(last_file).split('.')[0]
+
+    scp_cmd = f"sshpass -p {password} scp -r {username}@{ip_address}:{remote_dir}/{base_filename}* {local_dir}"
+
+    try:
+        subprocess.run(scp_cmd, shell=True, check=True)
+        for file in Path(local_dir).glob(f"{base_filename}*"):
+            # Assuming plugin.upload_file() is a method you have defined or available
+            logging.info(f"Uploading file {file}")
+            # plugin.upload_file(str(file))
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Failed to copy or upload files: {e}")
 
 def publish_data(plugin, data, data_names, meta):
     """
@@ -115,7 +161,36 @@ def publish_data(plugin, data, data_names, meta):
             except KeyError as e:
                 logging.error(f"Metadata key missing: {e}")
 
-def run(ip_address, port, data_names, meta):
+
+def scp_and_upload(last_file, username, password, ip_address, local_dir):
+    """
+    Copies the specified file and its associated files from the remote system
+    and uploads them to the Waggle platform.
+
+    :param last_file: The path of the last file generated by the SmartFlux device.
+    :param username: Username for SCP.
+    :param password: Password for SCP.
+    :param ip_address: IP address of the remote system.
+    :param local_dir: Local directory to copy the files to.
+    """
+    # Extract the directory and base filename
+    remote_dir = os.path.dirname(last_file)
+    base_filename = os.path.basename(last_file).split('.')[0]
+
+    # Construct the SCP command
+    scp_cmd = f"sshpass -p {password} scp -r {username}@{ip_address}:{remote_dir}/{base_filename}* {local_dir}"
+
+    try:
+        # Execute the SCP command
+        subprocess.run(scp_cmd, shell=True, check=True)
+
+        # Upload the files
+        for file in Path(local_dir).glob(f"{base_filename}*"):
+            plugin.upload_file(str(file))
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to copy or upload files: {e}")
+
+def run(args, data_names, meta):
     """
     Main function to operate the SmartFlux data reader.
 
@@ -127,7 +202,7 @@ def run(ip_address, port, data_names, meta):
     tcp_socket = None
     try:
         with Plugin() as plugin:
-            tcp_socket = connect(ip_address, port)
+            tcp_socket = connect(args.ip, args.port)
             while True:
                 data = parse_data(tcp_socket)
                 logging.info(f"Data: {data}")
@@ -144,8 +219,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TCP Device Interface for SmartFlux")
     parser.add_argument('--ip', type=str, required=True, help='SmartFlux IP address')
     parser.add_argument('--port', type=int, default=7200, help='TCP connection port (default: 7200)')
-    parser.add_argument('--sensors', type=str, default="LI7500DS + Gill", help='Gas Analyzer and Sonic Sensor names (default: LI7500DS + Gill)')
+    parser.add_argument('--sensor', type=str, default="LI7500DS + Gill", help='Gas Analyzer and Sonic Sensor names (default: LI7500DS + Gill)')
     parser.add_argument('--interval', type=int, default=1, help='Data publishing interval in seconds (default: 1)')
+    parser.add_argument('--user', type=str, default="licor", help='licor smartflux user id')
+    parser.add_argument('--passwd', type=str, default="licor", help='licor smartflux password')
 
     args = parser.parse_args()
 

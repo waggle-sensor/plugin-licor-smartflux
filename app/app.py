@@ -23,6 +23,33 @@ from pathlib import Path
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
+def run(args, data_names, meta):
+    """
+    Main function to operate the SmartFlux data reader.
+
+    :param ip_address: IP address of the SmartFlux device.
+    :param port: Port number for the connection.
+    :param data_names: Data keys mapping.
+    :param meta: Metadata for the data.
+    """
+    tcp_socket = None
+    try:
+        with Plugin() as plugin:
+            tcp_socket = connect(args)
+            while True:
+                data = parse_data(args, plugin, tcp_socket)
+                logging.info(f"Data: {data}")
+                publish_data(plugin, data, data_names, meta)
+    except Exception as e:
+        logging.error(f"{e}")
+    finally:
+        if tcp_socket:
+            tcp_socket.close()
+        logging.info("Connection closed.")
+
+
+
 def connect(args):
     """
     Establishes a connection to a Licor SmartFlux device.
@@ -39,7 +66,8 @@ def connect(args):
         raise
     return tcp_socket
 
-def parse_data(tcp_socket):
+
+def parse_data(args, plugin,  tcp_socket):
     """
     Receives and decodes data from a SmartFlux device.
 
@@ -55,7 +83,7 @@ def parse_data(tcp_socket):
     if not "RunStatus done" in data:
        return(extract_data(data))
     else: # if run status done found
-        copy_flux_files(data)
+        copy_flux_files(args, plugin, data)
         return None
                 
 
@@ -104,36 +132,6 @@ def extract_data(data):
     return parsed_data
 
 
-def copy_flux_files(data):
-    """
-    Handles the completion status by initiating file transfer.
-    """
-    last_file_match = re.search(r'\(LastFile ([^\)]+)\)', data)
-    if last_file_match:
-        last_file = last_file_match.group(1)
-        scp_thread = threading.Thread(target=scp_and_upload, args=(last_file, 'username', 'password', 'ip_address', '/local/dir'))
-        scp_thread.start()
-
-
-def scp_and_upload(last_file, username, password, ip_address, local_dir):
-    """
-    Copies the specified file and its associated files from the remote system
-    and uploads them to the Waggle platform.
-    """
-    remote_dir = os.path.dirname(last_file)
-    base_filename = os.path.basename(last_file).split('.')[0]
-
-    scp_cmd = f"sshpass -p {password} scp -r {username}@{ip_address}:{remote_dir}/{base_filename}* {local_dir}"
-
-    try:
-        subprocess.run(scp_cmd, shell=True, check=True)
-        for file in Path(local_dir).glob(f"{base_filename}*"):
-            # Assuming plugin.upload_file() is a method you have defined or available
-            logging.info(f"Uploading file {file}")
-            # plugin.upload_file(str(file))
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Failed to copy or upload files: {e}")
-
 def publish_data(plugin, data, data_names, meta):
     """
     Publishes SmartFlux data to the Waggle plugin.
@@ -162,7 +160,19 @@ def publish_data(plugin, data, data_names, meta):
                 logging.error(f"Metadata key missing: {e}")
 
 
-def scp_and_upload(last_file, username, password, ip_address, local_dir):
+def copy_flux_files(args, data):
+    """
+    Handles the completion status by initiating file transfer.
+    """
+    last_file_match = re.search(r'\(LastFile ([^\)]+)\)', data)
+    if last_file_match:
+        last_file = last_file_match.group(1)
+        scp_thread = threading.Thread(target=scp_and_upload, args=(args, last_file))
+        scp_thread.start()
+
+
+
+def scp_and_upload(args, last_file):
     """
     Copies the specified file and its associated files from the remote system
     and uploads them to the Waggle platform.
@@ -177,42 +187,23 @@ def scp_and_upload(last_file, username, password, ip_address, local_dir):
     remote_dir = os.path.dirname(last_file)
     base_filename = os.path.basename(last_file).split('.')[0]
 
+    local_dir = '/data'
+
     # Construct the SCP command
-    scp_cmd = f"sshpass -p {password} scp -r {username}@{ip_address}:{remote_dir}/{base_filename}* {local_dir}"
+    scp_cmd = f"sshpass -p {args.passwd} scp -r {args.user}@{args.ip}:{remote_dir}/{base_filename}* {local_dir}"
 
     try:
         # Execute the SCP command
         subprocess.run(scp_cmd, shell=True, check=True)
 
         # Upload the files
-        for file in Path(local_dir).glob(f"{base_filename}*"):
-            plugin.upload_file(str(file))
+        with Plugin() as pluginf:
+            for file in Path(local_dir).glob(f"{base_filename}*"):
+                pluginf.upload_file(str(file))
     except subprocess.CalledProcessError as e:
         print(f"Failed to copy or upload files: {e}")
 
-def run(args, data_names, meta):
-    """
-    Main function to operate the SmartFlux data reader.
 
-    :param ip_address: IP address of the SmartFlux device.
-    :param port: Port number for the connection.
-    :param data_names: Data keys mapping.
-    :param meta: Metadata for the data.
-    """
-    tcp_socket = None
-    try:
-        with Plugin() as plugin:
-            tcp_socket = connect(args.ip, args.port)
-            while True:
-                data = parse_data(tcp_socket)
-                logging.info(f"Data: {data}")
-                publish_data(plugin, data, data_names, meta)
-    except Exception as e:
-        logging.error(f"{e}")
-    finally:
-        if tcp_socket:
-            tcp_socket.close()
-        logging.info("Connection closed.")
 
 if __name__ == "__main__":
 
@@ -322,7 +313,7 @@ if __name__ == "__main__":
     }
 
     try:
-        run(args.ip, args.port, data_names, meta)
+        run(args, data_names, meta)
     except KeyboardInterrupt:
         logging.info("Interrupted by user, shutting down.")
     except Exception as e:

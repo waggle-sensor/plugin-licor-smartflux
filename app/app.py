@@ -67,7 +67,7 @@ def connect(args):
     """
     try:
         tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tcp_socket.connect((args.ip, args.port))
+        tcp_socket.connect(args.ip, args.port)
     except Exception as e:
         logging.error(f"Connection failed: {e}. Check device, network, or Waggle node restrictions.")
         raise

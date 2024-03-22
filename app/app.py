@@ -42,8 +42,8 @@ def run(args, data_names, meta):
             tcp_socket = connect(args)
             while True:
                 data = parse_data(args, plugin, tcp_socket)
-                logging.info(f"Data: {data}")
-                publish_data(plugin, data, data_names, meta)
+                #logging.info(f"Data: {data}")
+                #publish_data(plugin, data, data_names, meta)
         except timeout_decorator.TimeoutError:
             logging.error(f"Unknown_Timeout")
             plugin.publish('exit.status', 'Unknown_Timeout')
@@ -214,7 +214,7 @@ def create_file_paths(args, base_filename):
 
 def copy_file(args, local_path, remote_path):
     """Copy files."""
-    scp_cmd = f"sshpass -p {args.passwd} scp {args.user}@{args.ip}:{remote_path} {local_path}"
+    scp_cmd = f"sshpass -p {args.passwd} scp -o StrictHostKeyChecking=no {args.user}@{args.ip}:{remote_path} {local_path}"
     try:
         subprocess.run(scp_cmd, shell=True, check=True)
         logging.info(f"Copied to {local_path}.")

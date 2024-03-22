@@ -151,23 +151,23 @@ def publish_data(plugin, data, data_names, meta):
     :param data_names: Mapping of data keys to publishing names.
     :param meta: Metadata for the data.
     """
+    if data:
+        timestamp_nanoseconds = int(data.get('Seconds', 0) * 1e9) # 0 if not found
 
-    timestamp_nanoseconds = int(data.get('Seconds', 0) * 1e9) # 0 if not found
-
-    for key, value in data.items():
-        if key in data_names:
-            try:
-                meta_data = {
-                    "missing": "-9999.0",
-                    "units": meta["units"][data_names[key]],
-                    "description": meta["description"][data_names[key]],
-                    "name": data_names[key],
-                    "sensor": meta["sensor"],
-                }
-                plugin.publish(data_names[key], value, meta=meta_data, 
-                               timestamp=timestamp_nanoseconds)
-            except KeyError as e:
-                logging.error(f"Metadata key missing: {e}")
+        for key, value in data.items():
+            if key in data_names:
+                try:
+                    meta_data = {
+                        "missing": "-9999.0",
+                        "units": meta["units"][data_names[key]],
+                        "description": meta["description"][data_names[key]],
+                        "name": data_names[key],
+                        "sensor": meta["sensor"],
+                    }
+                    plugin.publish(data_names[key], value, meta=meta_data, 
+                                timestamp=timestamp_nanoseconds)
+                except KeyError as e:
+                    logging.error(f"Metadata key missing: {e}")
 
 
 def run_copy_and_upload(args, data):
@@ -191,19 +191,20 @@ def copy_and_upload(args, last_file):
     """
 
     # Extract date_time_pattern from the last_file string
-    date_time_pattern = last_file.split('_')[0]  
-
-    local_dir = '/data/' + date_time_pattern
+    date_time_str = last_file.split('_')[0]  
+    year_month = re.match(r"(\d{4})-(\d{2})", date_time_str).group(0).replace('-', '/')
+    local_dir = '/data/' + date_time_str
     # make node directory if not exist
     Path(local_dir).mkdir(parents=True, exist_ok=True)
 
 
     # these directories on licor has data
-    remote_dirs = ["/home/licor/data/results", "/home/licor/data/raw"]
+    remote_data_dir = "/home/licor/data/"
+    remote_dirs = [remote_data_dir+"results/"+year_month, remote_data_dir+"raw/"+year_month]
 
     for remote_dir in remote_dirs:
         # make SCP command for copying files
-        scp_cmd = f"sshpass -p {args.passwd} scp -r {args.user}@{args.ip}:{remote_dir}/{date_time_pattern}* {local_dir}"
+        scp_cmd = f"sshpass -p {args.passwd} scp -r {args.user}@{args.ip}:{remote_dir}/{date_time_str}* {local_dir}"
         try:
             subprocess.run(scp_cmd, shell=True, check=True)
             logging.info(f"Files copied from {remote_dir}.")
@@ -213,7 +214,7 @@ def copy_and_upload(args, last_file):
 
     # upload files 
     with Plugin() as plugin:
-        for file in Path(local_dir).glob(f"{date_time_pattern}*"):
+        for file in Path(local_dir).glob(f"{date_time_str}*"):
             plugin.upload_file(str(file))
             logging.info(f"File {file} uploaded successfully.")
 

@@ -172,7 +172,7 @@ def publish_data(plugin, data, data_names, meta):
 
 def run_copy_and_upload(args, data):
     """
-    Handles the completion status by initiating file transfer.
+    Initiate file transfer in thread.
     """
     last_file_match = re.search(r'\(LastFile ([^\)]+)\)', data)
     if last_file_match:
@@ -181,43 +181,57 @@ def run_copy_and_upload(args, data):
         scp_thread.start()
 
 
-
 def copy_and_upload(args, last_file):
-    """
-    Copies files from licor based on a last file's datetime pattern,
+    """Copy .ghg and .zip files from licor, upload, and delete."""
+    # get the name, remove ext
+    base_filename = last_file.split('.')[0]
+    local_paths, remote_paths = create_file_paths(args, base_filename)
+    Path(args.local_dir).mkdir(exist_ok=True)
 
-    :param last_file: Filename for '.ghg' 
-    :param args: Arguments from user
-    """
-
-    # Extract date_time_pattern from the last_file string
-    date_time_str = last_file.split('_')[0]  
-    year_month = re.match(r"(\d{4})-(\d{2})", date_time_str).group(0).replace('-', '/')
-    local_dir = '/data/' + date_time_str
-    # make node directory if not exist
-    Path(local_dir).mkdir(parents=True, exist_ok=True)
+    for ext in [".ghg", ".zip"]:
+        copy_file(args, local_paths[ext], remote_paths[ext])
+        upload_and_cleanup(local_paths[ext])
 
 
-    # these directories on licor has data
-    remote_data_dir = "/home/licor/data/"
-    remote_dirs = [remote_data_dir+"results/"+year_month, remote_data_dir+"raw/"+year_month]
+def create_file_paths(args, base_filename):
+    """Generate file paths."""
 
-    for remote_dir in remote_dirs:
-        # make SCP command for copying files
-        scp_cmd = f"sshpass -p {args.passwd} scp -r {args.user}@{args.ip}:{remote_dir}/{date_time_str}* {local_dir}"
-        try:
-            subprocess.run(scp_cmd, shell=True, check=True)
-            logging.info(f"Files copied from {remote_dir}.")
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Failed to copy from {remote_dir}: {e}")
-            continue  
+    remote_data_dir = args.licor_dir
+    year, month = re.match(r"(\d{4})-(\d{2})", base_filename).groups()
 
-    # upload files 
-    with Plugin() as plugin:
-        for file in Path(local_dir).glob(f"{date_time_str}*"):
-            plugin.upload_file(str(file))
-            logging.info(f"File {file} uploaded successfully.")
+    remote_paths = {
+        ".ghg": os.path.join(remote_data_dir, "raw", year, month, f"{base_filename}.ghg"),
+        ".zip": os.path.join(remote_data_dir, "results", year, month, f"{base_filename}.zip"),
+    }
 
+    local_paths = {
+        ".ghg": os.path.join(args.local_dir, f"{base_filename}.ghg"),
+        ".zip": os.path.join(args.local_dir, f"{base_filename}.zip"),
+    }
+
+    return local_paths, remote_paths
+
+
+def copy_file(args, local_path, remote_path):
+    """Copy files."""
+    scp_cmd = f"sshpass -p {args.passwd} scp {args.user}@{args.ip}:{remote_path} {local_path}"
+    try:
+        subprocess.run(scp_cmd, shell=True, check=True)
+        logging.info(f"Copied to {local_path}.")
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Copy failed: {e}")
+
+
+def upload_and_cleanup(local_path):
+    """Upload and delete file from container."""
+    if Path(local_path).exists():
+        with Plugin() as plugin:
+            plugin.upload_file(local_path)
+            logging.info(f"Uploaded {local_path}.")
+            os.remove(local_path)
+            logging.info(f"Deleted {local_path}.")
+    else:
+        logging.error(f"{local_path} missing.")
 
 
 
@@ -230,6 +244,8 @@ if __name__ == "__main__":
     parser.add_argument('--interval', type=int, default=1, help='Data publishing interval in seconds (default: 1)')
     parser.add_argument('--user', type=str, default="licor", help='licor smartflux user id')
     parser.add_argument('--passwd', type=str, default="licor", help='licor smartflux password')
+    parser.add_argument('--local_dir', type=str, default="/data/", help='container directory for saving flux files [temp]')
+    parser.add_argument('--licor_dir', type=str, default="/home/licor/data/", help='licor smartflux data directory.')
 
     args = parser.parse_args()
 

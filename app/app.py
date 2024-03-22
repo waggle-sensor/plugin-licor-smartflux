@@ -188,9 +188,21 @@ def copy_and_upload(args, last_file):
     local_paths, remote_paths = create_file_paths(args, base_filename)
     Path(args.local_dir).mkdir(exist_ok=True)
 
-    for ext in [".ghg", ".zip"]:
-        copy_file(args, local_paths[ext], remote_paths[ext])
-        upload_and_cleanup(local_paths[ext])
+    with Plugin() as plugin:
+        for ext in [".ghg", ".zip"]:
+            remote_file = remote_paths[ext]
+            local_file = local_paths[ext]
+
+            scp_cmd = f"sshpass -p {args.passwd} scp -o StrictHostKeyChecking=no {args.user}@{args.ip}:{remote_file} {local_file}"
+            try:
+                subprocess.run(scp_cmd, shell=True, check=True)
+                logging.info(f"Copied to {local_file}.")
+            except subprocess.CalledProcessError as e:
+                logging.error(f"Copy failed: {e}")
+            
+            plugin.upload_file(local_file)
+            logging.info(f"Uploaded {local_file}.")
+
 
 
 def create_file_paths(args, base_filename):
@@ -212,26 +224,7 @@ def create_file_paths(args, base_filename):
     return local_paths, remote_paths
 
 
-def copy_file(args, local_path, remote_path):
-    """Copy files."""
-    scp_cmd = f"sshpass -p {args.passwd} scp -o StrictHostKeyChecking=no {args.user}@{args.ip}:{remote_path} {local_path}"
-    try:
-        subprocess.run(scp_cmd, shell=True, check=True)
-        logging.info(f"Copied to {local_path}.")
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Copy failed: {e}")
 
-
-def upload_and_cleanup(local_path):
-    """Upload and delete file from container."""
-    if Path(local_path).exists():
-        with Plugin() as plugin:
-            plugin.upload_file(local_path)
-            logging.info(f"Uploaded {local_path}.")
-            os.remove(local_path)
-            logging.info(f"Deleted {local_path}.")
-    else:
-        logging.error(f"{local_path} missing.")
 
 
 

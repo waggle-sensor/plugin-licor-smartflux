@@ -1,8 +1,10 @@
 """
 The waggle plugin designed to interface with Licor SmartFlux over TCP/IP connections. 
 It reads, parses, and publishes data from SmartFlux to the beehive.
+Also, check for the flux computation status and uploads the `.ghg` and `.zip` files.
 
 @ToDo
+0. It should delete files from USB
 1. It should change sonic wind data sensor name.
 2. Time need to be tested for accuracy.
 """
@@ -69,7 +71,7 @@ def connect(args):
         tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_socket.connect((args.ip, args.port))
     except Exception as e:
-        logging.error(f"Connection failed: {e}. Check device, network, or Waggle node restrictions.")
+        logging.error(f"Connection failed: {e}. Check device or network.")
         raise
     return tcp_socket
 
@@ -92,7 +94,7 @@ def parse_data(args, plugin,  tcp_socket):
     if not "RunStatus done" in data:
        return(extract_data(data))
     else: # if run status done found
-        print('Flux computation status completed, calling copy_flux_files()')
+        print('Flux computation completed, calling copy_flux_files()')
         run_copy_and_upload(args, data)
         return None
                 
@@ -144,7 +146,7 @@ def extract_data(data):
 
 def publish_data(plugin, data, data_names, meta):
     """
-    Publishes SmartFlux data to the Waggle plugin.
+    Publishes SmartFlux data to the beehive.
 
     :param plugin: Plugin object for publishing.
     :param data: Data dictionary to be published.
@@ -183,6 +185,7 @@ def run_copy_and_upload(args, data):
 
 def copy_and_upload(args, last_file):
     """Copy .ghg and .zip files from licor, upload, and delete."""
+
     # get the name, remove ext
     base_filename = last_file.split('.')[0]
     local_paths, remote_paths = create_file_paths(args, base_filename)
@@ -202,6 +205,7 @@ def copy_and_upload(args, last_file):
             
             plugin.upload_file(local_file)
             logging.info(f"Uploaded {local_file}.")
+            # plugin.upload will delete the files.
 
 
 
@@ -233,11 +237,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TCP Device Interface for SmartFlux")
     parser.add_argument('--ip', type=str, required=True, help='SmartFlux IP address')
     parser.add_argument('--port', type=int, default=7200, help='TCP connection port (default: 7200)')
-    parser.add_argument('--sensor', type=str, default="LI7500DS + Gill", help='Gas Analyzer and Sonic Sensor names (default: LI7500DS + Gill)')
+    parser.add_argument('--sensor', type=str, default="LI7500DS + Mitek", help='Gas Analyzer and Sonic Sensor names (default: LI7500DS + Gill)')
     parser.add_argument('--interval', type=int, default=1, help='Data publishing interval in seconds (default: 1)')
     parser.add_argument('--user', type=str, default="licor", help='licor smartflux user id')
     parser.add_argument('--passwd', type=str, default="licor", help='licor smartflux password')
-    parser.add_argument('--local_dir', type=str, default="/data/", help='container directory for saving flux files [temp]')
+    parser.add_argument('--local_dir', type=str, default="/data/", help='container directory for saving flux files.')
     parser.add_argument('--licor_dir', type=str, default="/home/licor/data/", help='licor smartflux data directory.')
 
     args = parser.parse_args()

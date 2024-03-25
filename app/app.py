@@ -40,7 +40,7 @@ def run(args, data_names, meta):
         try:
             tcp_socket = connect(args)
             while True:
-                data = parse_data(args, plugin, tcp_socket)
+                data = parse_data(args, tcp_socket)
                 #logging.info(f"Data: {data}")
                 #publish_data(plugin, data, data_names, meta)
         except timeout_decorator.TimeoutError:

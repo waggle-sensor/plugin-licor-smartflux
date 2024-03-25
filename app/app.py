@@ -4,9 +4,8 @@ It reads, parses, and publishes data from SmartFlux to the beehive.
 Also, check for the flux computation status and uploads the `.ghg` and `.zip` files.
 
 @ToDo
-0. It should delete files from USB
-1. It should change sonic wind data sensor name.
-2. Time need to be tested for accuracy.
+1. It should delete files from USB
+2. It should change sonic wind data sensor name.
 """
 
 import socket
@@ -33,8 +32,6 @@ def run(args, data_names, meta):
     """
     Main function to operate the SmartFlux data reader.
 
-    :param ip_address: IP address of the SmartFlux device.
-    :param port: Port number for the connection.
     :param data_names: Data keys mapping.
     :param meta: Metadata for the data.
     """
@@ -63,8 +60,7 @@ def connect(args):
     """
     Establishes a connection to a Licor SmartFlux device.
 
-    :param ip_address: IP address of the SmartFlux device.
-    :param port: Port number for the connection.
+    :param args: input argument object
     :return: A socket object for communication.
     """
     try:
@@ -78,10 +74,10 @@ def connect(args):
 
 
 @timeout_decorator.timeout(TIMEOUT_SECONDS, use_signals=True)
-def parse_data(args, plugin,  tcp_socket):
+def parse_data(args, tcp_socket):
     """
     Receives and decodes data from a SmartFlux device.
-
+    :param args: input argument object
     :param tcp_socket: The socket object connected to SmartFlux.
     :return: A dictionary of parsed data.
     """
@@ -205,12 +201,14 @@ def copy_and_upload(args, last_file):
             
             plugin.upload_file(local_file)
             logging.info(f"Uploaded {local_file}.")
-            # plugin.upload will delete the files.
 
 
 
 def create_file_paths(args, base_filename):
-    """Generate file paths."""
+    """Generate file paths.
+
+    Assuming fix file paths for all smartflux devices.
+    """
 
     remote_data_dir = args.licor_dir
     year, month = re.match(r"(\d{4})-(\d{2})", base_filename).groups()
@@ -229,16 +227,13 @@ def create_file_paths(args, base_filename):
 
 
 
-
-
-
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description="TCP Device Interface for SmartFlux")
+    parser = argparse.ArgumentParser(description="Data Interface for SmartFlux")
     parser.add_argument('--ip', type=str, required=True, help='SmartFlux IP address')
     parser.add_argument('--port', type=int, default=7200, help='TCP connection port (default: 7200)')
-    parser.add_argument('--sensor', type=str, default="LI7500DS + Mitek", help='Gas Analyzer and Sonic Sensor names (default: LI7500DS + Gill)')
-    parser.add_argument('--interval', type=int, default=1, help='Data publishing interval in seconds (default: 1)')
+    parser.add_argument('--sensor', type=str, default="LI7500DS/uSonic-3", help='Gas Analyzer and Sonic Sensor names (default: LI7500DS/uSonic-3)')
+    #parser.add_argument('--interval', type=int, default=1, help='Data publishing interval in seconds (default: 1)')
     parser.add_argument('--user', type=str, default="licor", help='licor smartflux user id')
     parser.add_argument('--passwd', type=str, default="licor", help='licor smartflux password')
     parser.add_argument('--local_dir', type=str, default="/data/", help='container directory for saving flux files.')

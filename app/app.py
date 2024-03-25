@@ -193,14 +193,23 @@ def copy_and_upload(args, last_file):
             local_file = local_paths[ext]
 
             scp_cmd = f"sshpass -p {args.passwd} scp -o StrictHostKeyChecking=no {args.user}@{args.ip}:{remote_file} {local_file}"
+            delete_cmd = f"sshpass -p {args.passwd} ssh -o StrictHostKeyChecking=no {args.user}@{args.ip} 'rm {remote_file}'"
             try:
                 subprocess.run(scp_cmd, shell=True, check=True)
                 logging.info(f"Copied to {local_file}.")
+                plugin.upload_file(local_file)
+                logging.info(f"Uploaded {local_file}.")
+
+                # Delete the file from smartflux. 
+                # *This logic is flawed, but I am keeping it. 
+                # If the delete_cmd got error, the files will remain in the smartflux.
+                # there should be a way to know what is uploaded and what is not.
+                subprocess.run(delete_cmd, shell=True, check=True)
+                logging.info(f"Deleted remote file {remote_file}.")
             except subprocess.CalledProcessError as e:
                 logging.error(f"Copy failed: {e}")
-            
-            plugin.upload_file(local_file)
-            logging.info(f"Uploaded {local_file}.")
+
+
 
 
 

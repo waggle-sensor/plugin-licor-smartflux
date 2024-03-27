@@ -36,7 +36,11 @@ def run(args, data_names, meta):
     :param data_names: Data keys mapping.
     :param meta: Metadata for the data.
     """
-    tcp_socket = None
+
+    # Create and start a thread to run the repeat_send function
+    thread = threading.Thread(target=repeat_tcp_handshake, args=(args))
+    thread.start()
+
     with Plugin() as plugin:
         try:
             tcp_socket = connect(args)
@@ -56,6 +60,18 @@ def run(args, data_names, meta):
             logging.info("Connection closed.")
 
 
+def repeat_tcp_handshake(args, message='hello', interval=60):
+    """Repeatedly send a message at fixed intervals."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        while True:
+            try:
+                sock.connect((args.ip, args.port))
+                sock.sendall(message.encode())
+            except Exception as e:
+                print(f"Error: {e}")
+            time.sleep(interval)
+
+
 
 def connect(args):
     """
@@ -67,7 +83,6 @@ def connect(args):
     try:
         tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_socket.connect((args.ip, args.port))
-        tcp_socket.sendall(b'1')
     except Exception as e:
         logging.error(f"Connection failed: {e}. Check device or network.")
         raise
@@ -95,6 +110,7 @@ def parse_data(args, tcp_socket):
         logging.info('Flux computation completed, calling copy_flux_files()')
         run_copy_and_upload(args, data)
         return None
+
 
 
 def extract_data(data):
@@ -211,8 +227,6 @@ def copy_and_upload(args, last_file):
                 #logging.info(f"Deleted remote file {remote_file}.")
             except subprocess.CalledProcessError as e:
                 logging.error(f"Copy failed: {e}")
-
-
 
 
 

@@ -16,13 +16,14 @@ import re
 import argparse
 import timeout_decorator
 import sys
-TIMEOUT_SECONDS = 30
+TIMEOUT_SECONDS = 300
 
 # for file transfer
 import threading
 import subprocess
 import os
 from pathlib import Path
+import time
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -42,7 +43,7 @@ def run(args, data_names, meta):
             while True:
                 data = parse_data(args, tcp_socket)
                 #logging.info(f"Data: {data}")
-                #publish_data(plugin, data, data_names, meta)
+                publish_data(plugin, data, data_names, meta)
         except timeout_decorator.TimeoutError:
             logging.error(f"Unknown_Timeout")
             plugin.publish('exit.status', 'Unknown_Timeout')
@@ -66,6 +67,7 @@ def connect(args):
     try:
         tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_socket.connect((args.ip, args.port))
+        tcp_socket.sendall(b'1')
     except Exception as e:
         logging.error(f"Connection failed: {e}. Check device or network.")
         raise
@@ -90,10 +92,10 @@ def parse_data(args, tcp_socket):
     if not "RunStatus done" in data:
        return(extract_data(data))
     else: # if run status done found
-        print('Flux computation completed, calling copy_flux_files()')
+        logging.info('Flux computation completed, calling copy_flux_files()')
         run_copy_and_upload(args, data)
         return None
-                
+
 
 def extract_data(data):
     parsed_data = {}
@@ -172,6 +174,7 @@ def run_copy_and_upload(args, data):
     """
     Initiate file transfer in thread.
     """
+    time.sleep(3)
     last_file_match = re.search(r'\(LastFile ([^\)]+)\)', data)
     if last_file_match:
         last_file = last_file_match.group(1)
@@ -193,7 +196,7 @@ def copy_and_upload(args, last_file):
             local_file = local_paths[ext]
 
             scp_cmd = f"sshpass -p {args.passwd} scp -o StrictHostKeyChecking=no {args.user}@{args.ip}:{remote_file} {local_file}"
-            delete_cmd = f"sshpass -p {args.passwd} ssh -o StrictHostKeyChecking=no {args.user}@{args.ip} 'rm {remote_file}'"
+            #delete_cmd = f"sshpass -p {args.passwd} ssh -o StrictHostKeyChecking=no {args.user}@{args.ip} 'rm {remote_file}'"
             try:
                 subprocess.run(scp_cmd, shell=True, check=True)
                 logging.info(f"Copied to {local_file}.")
@@ -204,8 +207,8 @@ def copy_and_upload(args, last_file):
                 # *This logic is flawed, but I am keeping it. 
                 # If the delete_cmd got error, the files will remain in the smartflux.
                 # there should be a way to know what is uploaded and what is not.
-                subprocess.run(delete_cmd, shell=True, check=True)
-                logging.info(f"Deleted remote file {remote_file}.")
+                #subprocess.run(delete_cmd, shell=True, check=True)
+                #logging.info(f"Deleted remote file {remote_file}.")
             except subprocess.CalledProcessError as e:
                 logging.error(f"Copy failed: {e}")
 
@@ -242,13 +245,17 @@ if __name__ == "__main__":
     parser.add_argument('--ip', type=str, required=True, help='SmartFlux IP address')
     parser.add_argument('--port', type=int, default=7200, help='TCP connection port (default: 7200)')
     parser.add_argument('--sensor', type=str, default="LI7500DS/uSonic-3", help='Gas Analyzer and Sonic Sensor names (default: LI7500DS/uSonic-3)')
-    #parser.add_argument('--interval', type=int, default=1, help='Data publishing interval in seconds (default: 1)')
     parser.add_argument('--user', type=str, default="licor", help='licor smartflux user id')
     parser.add_argument('--passwd', type=str, default="licor", help='licor smartflux password')
+    parser.add_argument('--timeout', type=int, default=300, help='Timeout interval in seconds (default: 300)')
     parser.add_argument('--local_dir', type=str, default="/data/", help='container directory for saving flux files.')
     parser.add_argument('--licor_dir', type=str, default="/home/licor/data/", help='licor smartflux data directory.')
 
+
     args = parser.parse_args()
+
+    # get timeout in seconds
+    os.environ['TIMEOUT_SECONDS'] = str(args.timeout)
 
     data_names = OrderedDict([
     ("Seconds", "time.seconds"),

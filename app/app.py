@@ -39,9 +39,7 @@ def run(args, data_names, meta):
 
     # Create and start a thread to run sending data function
 
-    stop_event = threading.Event() # for threading
-    thread = threading.Thread(target=repeat_tcp_handshake, args=(args.ip, args.port, stop_event))
-    thread.start()
+
 
     with Plugin() as plugin:
         try:
@@ -57,26 +55,23 @@ def run(args, data_names, meta):
         except Exception as e:
             logging.error(f"{e}")
         finally:
-            stop_event.set()  # singnal thread to stop
-            thread.join()  # Wait for finish
             if tcp_socket:
                 tcp_socket.close()
             logging.info("Connection closed.")
 
 
 
-def repeat_tcp_handshake(ip, port, stop_event, message='hello', interval=60):
+def repeat_tcp_handshake(sock, stop_event, message='1', interval=60):
     """Repeatedly send a message at fixed intervals."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.connect((ip, port))
-        while not stop_event.is_set():
-            print('handshake')
-            try:
-                sock.sendall(message.encode())
-                sock.sendall(message.encode())
-            except Exception as e:
-                print(f"Error: {e}")
-            time.sleep(interval)
+
+    while not stop_event.is_set():
+        print('handshake')
+        try:
+            sock.sendall(message.encode('ascii'))
+            sock.sendall(message.encode('ascii'))
+        except Exception as e:
+            print(f"Error: {e}")
+        time.sleep(interval)
 
 
 
@@ -87,12 +82,19 @@ def connect(args):
     :param args: input argument object
     :return: A socket object for communication.
     """
+
+    stop_event = threading.Event() # for threading
     try:
         tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_socket.connect((args.ip, args.port))
+        thread = threading.Thread(target=repeat_tcp_handshake, args=(socket, stop_event))
+        thread.start()
     except Exception as e:
         logging.error(f"Connection failed: {e}. Check device or network.")
         raise
+    finally:
+        stop_event.set()  # singnal thread to stop
+        thread.join()  # Wait for finish
     return tcp_socket
 
 

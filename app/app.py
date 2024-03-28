@@ -68,10 +68,10 @@ def run(args, data_names, meta):
 def repeat_tcp_handshake(ip, port, stop_event, message='hello', interval=60):
     """Repeatedly send a message at fixed intervals."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.connect((ip, port))
         while not stop_event.is_set():
             print('handshake')
             try:
-                sock.connect((ip, port))
                 sock.sendall(message.encode())
                 sock.sendall(message.encode())
             except Exception as e:

@@ -37,10 +37,6 @@ def run(args, data_names, meta):
     :param meta: Metadata for the data.
     """
 
-    # Create and start a thread to run sending data function
-
-
-
     with Plugin() as plugin:
         try:
             tcp_socket = connect(args)
@@ -61,20 +57,6 @@ def run(args, data_names, meta):
 
 
 
-def repeat_tcp_handshake(sock, stop_event, message='1', interval=60):
-    """Repeatedly send a message at fixed intervals."""
-
-    while not stop_event.is_set():
-        print('handshake')
-        try:
-            sock.sendall(message.encode('ascii'))
-            sock.sendall(message.encode('ascii'))
-        except Exception as e:
-            print(f"Error: {e}")
-        time.sleep(interval)
-
-
-
 def connect(args):
     """
     Establishes a connection to a Licor SmartFlux device.
@@ -82,19 +64,12 @@ def connect(args):
     :param args: input argument object
     :return: A socket object for communication.
     """
-
-    stop_event = threading.Event() # for threading
     try:
         tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_socket.connect((args.ip, args.port))
-        thread = threading.Thread(target=repeat_tcp_handshake, args=(socket, stop_event))
-        thread.start()
     except Exception as e:
         logging.error(f"Connection failed: {e}. Check device or network.")
         raise
-    finally:
-        stop_event.set()  # singnal thread to stop
-        thread.join()  # Wait for finish
     return tcp_socket
 
 

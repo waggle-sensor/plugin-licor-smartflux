@@ -37,6 +37,12 @@ def run(args, data_names, meta):
     :param meta: Metadata for the data.
     """
 
+    # Create and start a thread to run sending data function
+
+    stop_event = threading.Event() # for threading
+    thread = threading.Thread(target=repeat_tcp_handshake, args=(args.ip, args.port, stop_event))
+    thread.start()
+
     with Plugin() as plugin:
         try:
             tcp_socket = connect(args)
@@ -51,9 +57,26 @@ def run(args, data_names, meta):
         except Exception as e:
             logging.error(f"{e}")
         finally:
+            stop_event.set()  # singnal thread to stop
+            thread.join()  # Wait for finish
             if tcp_socket:
                 tcp_socket.close()
             logging.info("Connection closed.")
+
+
+
+def repeat_tcp_handshake(ip, port, stop_event, message='1\r', interval=60):
+    """Repeatedly send a message at fixed intervals."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        while not stop_event.is_set():
+            print('handshake')
+            try:
+                sock.connect((ip, port))
+                sock.sendall(message.encode())
+                sock.sendall(message.encode())
+            except Exception as e:
+                print(f"Error: {e}")
+            time.sleep(interval)
 
 
 

@@ -37,15 +37,14 @@ def run(args, data_names, meta):
     :param meta: Metadata for the data.
     """
 
-    # Create and start a thread to run sending data function
-
-    stop_event = threading.Event() # for threading
-    thread = threading.Thread(target=repeat_tcp_handshake, args=(args.ip, args.port, stop_event))
-    thread.start()
-
     with Plugin() as plugin:
         try:
             tcp_socket = connect(args)
+
+            #  Run handshake function in threads
+            stop_event = threading.Event()
+            thread = threading.Thread(target=repeat_tcp_handshake, args=(tcp_socket, stop_event))
+            thread.start()
             while True:
                 data = parse_data(args, tcp_socket)
                 #logging.info(f"Data: {data}")
@@ -65,24 +64,22 @@ def run(args, data_names, meta):
 
 
 
-def repeat_tcp_handshake(ip, port, stop_event, message='1\r', interval=300):
+def repeat_tcp_handshake(sock, stop_event, message='1\n\r', interval=300):
     """Repeatedly send a message at fixed intervals."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.connect((ip, port))
-        while not stop_event.is_set():
-            print('handshake')
-            try:
-                sock.sendall(message.encode())
-                sock.sendall(message.encode())
-            except Exception as e:
-                print(f"Error: {e}")
-            time.sleep(interval)
+
+    while not stop_event.is_set():
+        try:
+            sock.sendall(message.encode())
+            sock.sendall(message.encode())
+        except Exception as e:
+            logging.error(f"Handshake Error: {e}")
+        time.sleep(interval)
 
 
 
 def connect(args):
     """
-    Establishes a connection to a Licor SmartFlux device.
+    Connect to a Licor SmartFlux device.
 
     :param args: input argument object
     :return: A socket object for communication.
@@ -100,7 +97,7 @@ def connect(args):
 @timeout_decorator.timeout(TIMEOUT_SECONDS, use_signals=True)
 def parse_data(args, tcp_socket):
     """
-    Receives and decodes data from a SmartFlux device.
+    Receives and parse data from a SmartFlux device.
     :param args: input argument object
     :param tcp_socket: The socket object connected to SmartFlux.
     :return: A dictionary of parsed data.
@@ -227,7 +224,7 @@ def copy_and_upload(args, last_file):
                 logging.info(f"Uploaded {local_file}.")
 
                 # Delete the file from smartflux. 
-                # *This logic is flawed, but I am keeping it. 
+                # *This logic is flawed, but I am keeping it. Need to revisit this.
                 # If the delete_cmd got error, the files will remain in the smartflux.
                 # there should be a way to know what is uploaded and what is not.
                 #subprocess.run(delete_cmd, shell=True, check=True)

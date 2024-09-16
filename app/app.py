@@ -38,6 +38,13 @@ def run(args, data_names, meta):
     """
 
     with Plugin() as plugin:
+        # first publish the lat, lon and alt
+        lat = plugin.subscribe("sys.gps.lat")
+        lon=plugin.subscribe("sys.gps.lon")
+        alt = plugin.subscribe("sys.gps.alt")
+        plugin.publish('node.lat', lat)
+        plugin.publish('node.lon', lon)
+        plugin.publish('node.lat', alt)
         try:
             tcp_socket = connect(args)
 

@@ -16,7 +16,7 @@ import re
 import argparse
 import timeout_decorator
 import sys
-TIMEOUT_SECONDS = 300
+TIMEOUT_SECONDS = 600
 
 # for file transfer
 import threading
@@ -76,7 +76,7 @@ def repeat_tcp_handshake(sock, stop_event, message='1\n\r', interval=300):
         time.sleep(interval)
 
 
-
+timeout_decorator.timeout(TIMEOUT_SECONDS, use_signals=True)
 def connect(args):
     """
     Connect to a Licor SmartFlux device.
@@ -161,7 +161,7 @@ def extract_data(data):
     
     return parsed_data
 
-
+@timeout_decorator.timeout(TIMEOUT_SECONDS, use_signals=True)
 def publish_data(plugin, data, data_names, meta):
     """
     Publishes SmartFlux data to the beehive.

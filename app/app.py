@@ -76,7 +76,7 @@ def repeat_tcp_handshake(sock, stop_event, message='1\n\r', interval=300):
         time.sleep(interval)
 
 
-timeout_decorator.timeout(TIMEOUT_SECONDS, use_signals=True)
+@timeout_decorator.timeout(TIMEOUT_SECONDS, use_signals=True)
 def connect(args):
     """
     Connect to a Licor SmartFlux device.

@@ -38,11 +38,6 @@ def run(args, data_names, meta):
     """
 
     with Plugin() as plugin:
-
-    # do something else
-        plugin.publish('node.lat', lat)
-        plugin.publish('node.lon', lon)
-        plugin.publish('node.lat', alt)
         try:
             tcp_socket = connect(args)
 

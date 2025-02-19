@@ -1,15 +1,8 @@
 import pytest
 from unittest.mock import MagicMock, patch
-import socket
-import timeout_decorator
 from collections import OrderedDict
 
-# Assuming the code is in a file named 'app.py' in the same directory
-from app import connect, extract_data  # Import the extract_data function
-
-
-# Define a shorter TIMEOUT_SECONDS for tests (if needed for timeout tests)
-TIMEOUT_SECONDS = 0.1  # e.g., 0.1 seconds for faster tests
+from app import connect, extract_data
 
 
 def test_extract_data_valid_string():

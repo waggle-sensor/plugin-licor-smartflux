@@ -1,6 +1,6 @@
 name: "licor-smartflux"
 description: "Captures & uploads data from a Licor SmartFlux data stream."
-version: "0.24.3.04"
+version: "0.25.2.19"
 authors: "Bhupendra Raut, Sujan Pal"
 collaborators: "Matt Tuftedal, Joe O'Brien, Ryan Sullivan, Yongho Kim and Raj Sankaran"
 funding: "Community Research on Climate and Urban Science (CROCUS)"

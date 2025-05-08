@@ -16,7 +16,7 @@ import re
 import argparse
 import timeout_decorator
 import sys
-TIMEOUT_SECONDS = 600
+TIMEOUT_SECONDS = 120
 
 # for file transfer
 import threading
@@ -55,6 +55,7 @@ def run(args, data_names, meta):
             sys.exit("Timeout error while waiting for data.")
         except Exception as e:
             logging.error(f"{e}")
+            plugin.publish('Error', f'{e}')
         finally:
             stop_event.set()  # singnal thread to stop
             thread.join()  # Wait for finish
@@ -89,7 +90,7 @@ def connect(args):
         tcp_socket.connect((args.ip, args.port))
     except Exception as e:
         logging.error(f"Connection failed: {e}. Check device or network.")
-        raise
+        raise e
     return tcp_socket
 
 
@@ -106,13 +107,14 @@ def parse_data(args, tcp_socket):
         data = tcp_socket.recv(4096).decode("utf-8")
     except Exception as e:
         logging.error(f"Error getting data: {e}")
-        raise
+        raise e
 
     if not "RunStatus done" in data:
        return(extract_data(data))
     else: # if run status done found
-        logging.info('Flux computation completed, calling copy_flux_files()')
-        run_copy_and_upload(args, data)
+        if args.upload_nc:
+            logging.info('Flux computation completed, calling copy_flux_files()')
+            run_copy_and_upload(args, data)
         return None
 
 
@@ -265,6 +267,7 @@ if __name__ == "__main__":
     parser.add_argument('--sensor', type=str, default="LI7500DS/uSonic-3", help='Gas Analyzer and Sonic Sensor names (default: LI7500DS/uSonic-3)')
     parser.add_argument('--user', type=str, default="licor", help='licor smartflux user id')
     parser.add_argument('--passwd', type=str, default="licor", help='licor smartflux password')
+    parser.add_argument("--upload_nc", action='store_true', help="Do no use this option. Instead use file-forager.")
     parser.add_argument('--timeout', type=int, default=300, help='Timeout interval in seconds (default: 300)')
     parser.add_argument('--local_dir', type=str, default="/data/", help='container directory for saving flux files.')
     parser.add_argument('--licor_dir', type=str, default="/home/licor/data/", help='licor smartflux data directory.')
